@@ -2,15 +2,50 @@ import datetime
 import json
 import time
 import utils
+import ddddocr
+import urllib.request
+import os
+import cv2
+import random
 
 from selenium import webdriver
 from selenium.webdriver.firefox.options import Options
 
 #########################################################################
 
+localtime = time.localtime(time.time())
+if localtime.tm_hour > 8:
+    # wait for the second day
+    now = time.localtime(time.time())
+    today = datetime.datetime.today()
+    tomorrow = today + datetime.timedelta(days=1)
+    next_day_str = tomorrow.strftime("%Y-%m-%d 07:58:00")
+    print(next_day_str)
+    start_ts = time.mktime(time.strptime(next_day_str, "%Y-%m-%d %H:%M:%S"))
+else:
+    # wait for current day
+    start_str = datetime.datetime.today().strftime("%Y-%m-%d 07:58:00")
+    print(start_str)
+    start_ts = time.mktime(time.strptime(start_str, "%Y-%m-%d %H:%M:%S"))
+    pass
+
+print(start_ts)
+urls = ["http://www.baidu.com", "https://www.tsinghua.edu.cn/", "https://www.zhihu.com/", "https://www.jd.com",
+        "https://learn.pingcap.com/", "http://www.aiyuke.com/", "https://www.csdn.net/"]
+while time.time() < start_ts:
+    # get random website to keep campus network alive
+    try:
+        req = urllib.request.urlopen(random.choice(urls))
+    except Exception as e:
+        pass
+    time.sleep(min(60, start_ts - time.time()))
+
+print("now is " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())))
+
 # 格式为2021-11-06这种，默认为当前日期加3。
 date = (datetime.datetime.now().date() + datetime.timedelta(days=3)) \
     .strftime('%Y-%m-%d')
+print(date)
 
 
 #########################################################################
@@ -27,6 +62,8 @@ password = config['password']
 phone_number = config['phone']
 date_time = config['time']
 station = config['station']
+pay_way = config['pay-way']
+pay_way = "1" if pay_way == "online" else "0"
 weight_map = utils.gen_weight_map(config)
 
 firefox_option = Options()
@@ -55,7 +92,7 @@ session.cookies.update(cookies)
 
 re = session.get('https://50.tsinghua.edu.cn/gymbook/gymbook/gymBookAction.do?ms=viewGymBook&gymnasium_id=&viewType=m')
 
-for line in re.content.decode('gbk').split('\n'):
+for line in re.content.decode('gbk').split('\n\r'):
     line = line.strip()
     if line.find('<a onclick="chooseItem(\'') != -1 and \
             line.find('气膜馆') != -1:
@@ -83,13 +120,29 @@ for line in re.content.decode('gbk').split('\n'):
         item_id = line.split("'")[3]
         break
 
-re = session.get('https://50.tsinghua.edu.cn/Kaptcha.jpg')
-Image.open(BytesIO(re.content)).show()
+url = "https://50.tsinghua.edu.cn/Kaptcha.jpg"
+dir = os.getcwd()
+# urllib.request.urlretrieve(url,'raw.jpeg')
+res = ""
+while len(res) != 4:
+    re = session.get(url)
+    img = Image.open(BytesIO(re.content))
+    img.save("raw.jpeg")
 
-print('Please enter the captcha: ', end='', flush=True)
+    img = cv2.imread('raw.jpeg')
+    cropped = img[0:50, 50:200]
+    cv2.imwrite('done.jpeg', cropped)
+    ocr = ddddocr.DdddOcr()
 
-captcha = input()
+    with open("done.jpeg", 'rb') as f:
+        image = f.read()
+    res = ocr.classification(image)
+
+captcha = res
 print('Captcha:', captcha)
+
+# os.remove('raw.jpeg')
+# os.remove('done.jpeg')
 
 start_time = datetime.datetime.now()
 
@@ -108,7 +161,7 @@ times = 0
 while True:
     time.sleep(0.5)
     end_time = datetime.datetime.now()
-    if (end_time - start_time).seconds >= 1800:
+    if (end_time - start_time).seconds >= 300:
         print('30min. Exit.')
         exit(0)
     times += 1
@@ -160,10 +213,12 @@ while True:
                 'userTypeNumForCache': '1',
                 'putongRes': 'putongRes',
                 'code': captcha,
-                'selectedPayWay': '1',
+                'selectedPayWay': pay_way,  # 0 为现场支付，1 为线上支付
                 'allFieldTime': id + '#' + date
             })
+            print(re.content.decode('gbk'))
             if re.content.decode('gbk').find("成功") != -1:
                 print(re.content.decode('gbk'))
+                print("付款！发票抬头清华大学")
                 exit(0)
         print("没有场地可以预定！")
