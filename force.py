@@ -123,102 +123,106 @@ for line in re.content.decode('gbk').split('\n'):
 url = "https://50.tsinghua.edu.cn/Kaptcha.jpg"
 dir = os.getcwd()
 # urllib.request.urlretrieve(url,'raw.jpeg')
-res = ""
-while len(res) != 4:
-    re = session.get(url)
-    img = Image.open(BytesIO(re.content))
-    img.save("raw.jpeg")
-
-    img = cv2.imread('raw.jpeg')
-    cropped = img[0:50, 50:200]
-    cv2.imwrite('done.jpeg', cropped)
-    ocr = ddddocr.DdddOcr()
-
-    with open("done.jpeg", 'rb') as f:
-        image = f.read()
-    res = ocr.classification(image)
-
-captcha = res
-print('Captcha:', captcha)
-
-# os.remove('raw.jpeg')
-# os.remove('done.jpeg')
-
-start_time = datetime.datetime.now()
-
-cost = {}
-re = session.get('https://50.tsinghua.edu.cn/gymsite/cacheAction.do?ms=viewBook&gymnasium_id=' + str(
-    station) + '&item_id=' + item_id + '&time_date=' + date + '&userType=1')
-
-for line in re.content.decode('gbk').split('\n'):
-    line = line.strip()
-    if line.find('addCost(\'') != -1:
-        cost[line.split("'")[1]] = int(float(line.split("'")[3]))
-
-print(cost)
-times = 0
-
+ocr = ddddocr.DdddOcr()
 while True:
-    time.sleep(0.5)
-    end_time = datetime.datetime.now()
-    if (end_time - start_time).seconds >= 300:
-        print('30min. Exit.')
-        exit(0)
-    times += 1
-    print(times, ':', (end_time - start_time).seconds)
+    res = ""
+    while len(res) != 4:
+        re = session.get(url)
+        img = Image.open(BytesIO(re.content))
+        img.save("raw.jpeg")
 
-    flag_not_open = False
-    re = session.get('https://50.tsinghua.edu.cn/gymbook/gymBookAction.do?ms=viewGymBook&gymnasium_id=' + str(
-        station) + '&item_id=&time_date=' + date + '&viewType=m')
-    for line in re.content.decode('gbk').split('\n'):
-        line = line.strip()
-        if line.find('第三天以后网上预约已关闭，开放时间为每天') != -1:
-            flag_not_open = True
-            break
-    if flag_not_open:
-        continue
+        img = cv2.imread('raw.jpeg')
+        cropped = img[0:50, 50:200]
+        cv2.imwrite('done.jpeg', cropped)
 
+        with open("done.jpeg", 'rb') as f:
+            image = f.read()
+        res = ocr.classification(image)
+
+    captcha = res
+    print('Captcha:', captcha)
+
+    # os.remove('raw.jpeg')
+    # os.remove('done.jpeg')
+
+    start_time = datetime.datetime.now()
+
+    cost = {}
     re = session.get('https://50.tsinghua.edu.cn/gymsite/cacheAction.do?ms=viewBook&gymnasium_id=' + str(
         station) + '&item_id=' + item_id + '&time_date=' + date + '&userType=1')
 
-    marked_ids = set()
-    flag_find = False
-
     for line in re.content.decode('gbk').split('\n'):
         line = line.strip()
-        if line.find('markResStatus(\'') != -1:
-            marked_ids.add(line.split("'")[3])
+        if line.find('addCost(\'') != -1:
+            cost[line.split("'")[1]] = int(float(line.split("'")[3]))
 
-    places = []
-    for line in (re.content.decode('gbk').split('\n')):
-        line = line.strip()
-        if line.find('resourceArray.push({id:\'') != -1:
-            place = eval(line[line.find('('): -1], SpecialDict())
-            if not place['id'] in marked_ids and place['time_session'] in date_time:
-                flag_find = True
-                places.append(place)
-    places = utils.sorted_by_weights(places, weight_map)
+    print(cost)
+    times = 0
+    verification_code_error = False
+    while not verification_code_error:
+        time.sleep(0.5)
+        end_time = datetime.datetime.now()
+        if (end_time - start_time).seconds >= 300:
+            print('30min. Exit.')
+            exit(0)
+        times += 1
+        print(times, ':', (end_time - start_time).seconds)
 
-    if flag_find:
-        for place in places:
-            id = place['id']
-            re = session.post('https://50.tsinghua.edu.cn/gymbook/gymbook/gymBookAction.do?ms=saveGymBook', data={
-                'bookData.totalCost': cost[id],
-                'bookData.book_person_zjh': '',
-                'bookData.book_person_name': '',
-                'bookData.book_person_phone': phone_number,
-                'bookData.book_mode': 'from-phone',
-                'item_idForCache': id,
-                'time_dateForCache': date,
-                'userTypeNumForCache': '1',
-                'putongRes': 'putongRes',
-                'code': captcha,
-                'selectedPayWay': pay_way,  # 0 为现场支付，1 为线上支付
-                'allFieldTime': id + '#' + date
-            })
-            print(re.content.decode('gbk'))
-            if re.content.decode('gbk').find("成功") != -1:
-                print(re.content.decode('gbk'))
-                print("付款！发票抬头清华大学")
-                exit(0)
-        print("没有场地可以预定！")
+        flag_not_open = False
+        re = session.get('https://50.tsinghua.edu.cn/gymbook/gymBookAction.do?ms=viewGymBook&gymnasium_id=' + str(
+            station) + '&item_id=&time_date=' + date + '&viewType=m')
+        for line in re.content.decode('gbk').split('\n'):
+            line = line.strip()
+            if line.find('第三天以后网上预约已关闭，开放时间为每天') != -1:
+                flag_not_open = True
+                break
+        if flag_not_open:
+            continue
+
+        re = session.get('https://50.tsinghua.edu.cn/gymsite/cacheAction.do?ms=viewBook&gymnasium_id=' + str(
+            station) + '&item_id=' + item_id + '&time_date=' + date + '&userType=1')
+
+        marked_ids = set()
+        flag_find = False
+
+        for line in re.content.decode('gbk').split('\n'):
+            line = line.strip()
+            if line.find('markResStatus(\'') != -1:
+                marked_ids.add(line.split("'")[3])
+
+        places = []
+        for line in (re.content.decode('gbk').split('\n')):
+            line = line.strip()
+            if line.find('resourceArray.push({id:\'') != -1:
+                place = eval(line[line.find('('): -1], SpecialDict())
+                if not place['id'] in marked_ids and place['time_session'] in date_time:
+                    flag_find = True
+                    places.append(place)
+        places = utils.sorted_by_weights(places, weight_map)
+
+        if flag_find:
+            for place in places:
+                id = place['id']
+                re = session.post('https://50.tsinghua.edu.cn/gymbook/gymbook/gymBookAction.do?ms=saveGymBook', data={
+                    'bookData.totalCost': cost[id],
+                    'bookData.book_person_zjh': '',
+                    'bookData.book_person_name': '',
+                    'bookData.book_person_phone': phone_number,
+                    'bookData.book_mode': 'from-phone',
+                    'item_idForCache': id,
+                    'time_dateForCache': date,
+                    'userTypeNumForCache': '1',
+                    'putongRes': 'putongRes',
+                    'code': captcha,
+                    'selectedPayWay': pay_way,  # 0 为现场支付，1 为线上支付
+                    'allFieldTime': id + '#' + date
+                })
+                if re.content.decode('gbk').find("验证码错误") != -1:
+                    verification_code_error = True
+                    print("验证码错误")
+                    break
+                if re.content.decode('gbk').find("成功") != -1:
+                    print(re.content.decode('gbk'))
+                    print("付款！发票抬头清华大学")
+                    exit(0)
+            print("没有场地可以预定！")
