@@ -1,4 +1,11 @@
 import json
+import requests
+from io import BytesIO
+from PIL import Image
+from ddddocr import DdddOcr
+import cv2
+
+_ocr = DdddOcr()
 
 
 def sorted_by_weights(array, weights):
@@ -21,3 +28,20 @@ def gen_weight_map(config):
         if i not in weight_map.keys():
             weight_map[i] = 0
     return weight_map
+
+
+def get_verification_code(session):
+    res = ""
+    while len(res) != 4:
+        re = session.get("https://50.tsinghua.edu.cn/Kaptcha.jpg")
+        img = Image.open(BytesIO(re.content))
+        img.save("raw.jpeg")
+
+        img = cv2.imread('raw.jpeg')
+        cropped = img[0:50, 50:200]
+        cv2.imwrite('done.jpeg', cropped)
+
+        with open("done.jpeg", 'rb') as f:
+            image = f.read()
+        res = _ocr.classification(image)
+    return res

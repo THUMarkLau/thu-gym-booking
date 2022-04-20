@@ -2,7 +2,11 @@
   "username": "2021214058",
   "password": "0622liuxuxin",
   "phone": "18163281681",
-  "station": "气膜",
+  "station": [
+    "气膜",
+    "综体",
+    "西体"
+  ],
   "time": [
     "14:00-16:00"
   ],
@@ -20,5 +24,6 @@
     10,
     11
   ],
-  "pay-way": "offline"
+  "pay-way": "offline",
+  "test_mode": "false"
 }
