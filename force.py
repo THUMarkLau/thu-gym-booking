@@ -7,11 +7,25 @@ import urllib.request
 import os
 import cv2
 import random
+import sys
 
 from selenium import webdriver
-from selenium.webdriver.firefox.options import Options
+# from selenium.webdriver.firefox.options import Options
+from selenium.webdriver.chrome.options import Options
 
 #########################################################################
+logf = open("./run.log", "w", encoding="utf-8")
+
+
+def my_print(self, *args):
+    s = str(self)
+    if len(args) != 0:
+        for arg in args:
+            s += str(arg)
+    logf.write(s + "\n")
+    logf.flush()
+    print(s)
+
 
 localtime = time.localtime(time.time())
 if localtime.tm_hour > 8:
@@ -19,17 +33,16 @@ if localtime.tm_hour > 8:
     now = time.localtime(time.time())
     today = datetime.datetime.today()
     tomorrow = today + datetime.timedelta(days=1)
-    next_day_str = tomorrow.strftime("%Y-%m-%d 07:58:00")
-    print(next_day_str)
+    next_day_str = tomorrow.strftime("%Y-%m-%d 07:58:30")
+    my_print(next_day_str)
     start_ts = time.mktime(time.strptime(next_day_str, "%Y-%m-%d %H:%M:%S"))
 else:
     # wait for current day
-    start_str = datetime.datetime.today().strftime("%Y-%m-%d 07:58:00")
-    print(start_str)
+    start_str = datetime.datetime.today().strftime("%Y-%m-%d 07:58:30")
+    my_print(start_str)
     start_ts = time.mktime(time.strptime(start_str, "%Y-%m-%d %H:%M:%S"))
     pass
 
-print(start_ts)
 urls = ["http://www.baidu.com", "https://www.tsinghua.edu.cn/", "https://www.zhihu.com/", "https://www.jd.com",
         "https://learn.pingcap.com/", "http://www.aiyuke.com/", "https://www.csdn.net/"]
 while time.time() < start_ts:
@@ -40,12 +53,12 @@ while time.time() < start_ts:
         pass
     time.sleep(min(60, start_ts - time.time()))
 
-print("now is " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())))
+my_print("now is " + time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time())))
 
 # 格式为2021-11-06这种，默认为当前日期加3。
 date = (datetime.datetime.now().date() + datetime.timedelta(days=3)) \
     .strftime('%Y-%m-%d')
-print(date)
+my_print(date)
 
 
 #########################################################################
@@ -66,9 +79,9 @@ pay_way = config['pay-way']
 pay_way = "1" if pay_way == "online" else "0"
 weight_map = utils.gen_weight_map(config)
 
-firefox_option = Options()
-firefox_option.add_argument('--headless')
-driver = webdriver.Firefox(options=firefox_option)
+browser_option = Options()
+browser_option.add_argument('--headless')
+driver = webdriver.Chrome(options=browser_option)
 driver.get('https://50.tsinghua.edu.cn/login_m.jsp')
 driver.implicitly_wait(1)
 driver.find_elements_by_id('login_username')[0].send_keys(username)
@@ -87,7 +100,7 @@ import requests
 from io import BytesIO
 from PIL import Image
 
-session = requests.session()
+session = requests.session()  # this is a test sentence
 session.cookies.update(cookies)
 
 re = session.get('https://50.tsinghua.edu.cn/gymbook/gymbook/gymBookAction.do?ms=viewGymBook&gymnasium_id=&viewType=m')
@@ -105,7 +118,8 @@ for line in re.content.decode('gbk').split('\n\r'):
         zongti = int(line.split("'")[1])
 
 stations = {'气膜': qimo, '西体': xiti, '综体': zongti}  # 399800, 4836273, 4797914
-print(stations)
+my_print(str(stations))
+my_print(str(date_time))
 
 station = stations[station]
 
@@ -140,7 +154,7 @@ while True:
         res = ocr.classification(image)
 
     captcha = res
-    print('Captcha:', captcha)
+    my_print('Captcha: ' + captcha)
 
     # os.remove('raw.jpeg')
     # os.remove('done.jpeg')
@@ -156,17 +170,16 @@ while True:
         if line.find('addCost(\'') != -1:
             cost[line.split("'")[1]] = int(float(line.split("'")[3]))
 
-    print(cost)
     times = 0
     verification_code_error = False
     while not verification_code_error:
         time.sleep(0.5)
         end_time = datetime.datetime.now()
         if (end_time - start_time).seconds >= 300:
-            print('30min. Exit.')
+            my_print('30min. Exit.')
             exit(0)
         times += 1
-        print(times, ':', (end_time - start_time).seconds)
+        my_print(times, ':', (end_time - start_time).seconds)
 
         flag_not_open = False
         re = session.get('https://50.tsinghua.edu.cn/gymbook/gymBookAction.do?ms=viewGymBook&gymnasium_id=' + str(
@@ -217,12 +230,12 @@ while True:
                     'selectedPayWay': pay_way,  # 0 为现场支付，1 为线上支付
                     'allFieldTime': id + '#' + date
                 })
+                my_print(re.content.decode('gbk'))
                 if re.content.decode('gbk').find("验证码错误") != -1:
                     verification_code_error = True
-                    print("验证码错误")
+                    my_print("验证码错误")
                     break
                 if re.content.decode('gbk').find("成功") != -1:
-                    print(re.content.decode('gbk'))
-                    print("付款！发票抬头清华大学")
+                    my_print("预定成功")
                     exit(0)
-            print("没有场地可以预定！")
+            my_print("没有场地可以预定！")
