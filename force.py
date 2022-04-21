@@ -125,10 +125,11 @@ stations = {'气膜': qimo, '西体': xiti, '综体': zongti}  # 399800, 4836273
 my_print(str(stations))
 my_print(str(date_time))
 station_idx = 0
-while True:
+while station_idx < len(station_list):
     station_name = station_list[station_idx]
     my_print("booking " + station_name)
     station = stations[station_name]
+    station_idx += 1
 
     re = session.get('https://50.tsinghua.edu.cn/gymbook/gymBookAction.do?ms=viewGymBook&gymnasium_id=' + str(
         station) + '&item_id=&time_date=&viewType=m')
